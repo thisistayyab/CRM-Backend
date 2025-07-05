@@ -13,5 +13,13 @@ router.route("/change-password").post(verifyJWT,changeCurrentPassword)
 router.route("/get-user").get(verifyJWT,getCurrentUser)
 router.route("/update-account").patch(verifyJWT, upload.single("profilepic"), updateAccount)
 
+// Test route for debugging
+router.route("/test").get((req, res) => {
+    res.json({ 
+        message: "Backend is working", 
+        cookies: req.cookies,
+        headers: req.headers
+    });
+});
 
 export {router}
