@@ -20,20 +20,9 @@ console.log("working correctly")
 })
 
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      "https://crm-frontend-tawny-nine.vercel.app",
-      "http://localhost:5173"
-    ];
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true
-}));
-
+    origin: "https://crm-backend-rho-weld.vercel.app",
+    credentials: true
+}))
 
 app.use(express.json({limit:"16kb"}))
 app.use(express.urlencoded({extended:true, limit:"16kb"}))
