@@ -1,7 +1,23 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv'
+import { mongoDB_connection } from './Database/db.js'
 const app = express();
+dotenv.config()
+
+// const port = process.env.PORT||3000
+
+mongoDB_connection()
+.then(()=>{
+//   app.listen(port, () => {
+//     console.log(`Example app listening on port ${port}`)
+//   })
+console.log("working correctly")
+})
+.catch((err)=>{
+  console.log(err)
+})
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
@@ -19,4 +35,4 @@ app.use("/v1/api/user",router)
 app.use("/v1/api/product", productRouter)
 
 
-export { app }
+export default app
