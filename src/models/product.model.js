@@ -24,6 +24,14 @@ const productSchema = new mongoose.Schema({
         type:Number,
         required:true,
         min:0
+    },
+    salePrice: {
+        type: Number
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
     }
 },{timestamps:true})
 
