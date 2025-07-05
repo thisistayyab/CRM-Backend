@@ -20,7 +20,7 @@ console.log("working correctly")
 })
 
 app.use(cors({
-    origin: "https://crm-frontend-tawny-nine.vercel.app/",
+    origin: process.env.CORS_ORIGIN,
     credentials: true
 }))
 
