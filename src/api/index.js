@@ -16,7 +16,7 @@
 //   console.log(err)
 // })
 
-import { app } from '../app.js'; // Adjust path as needed
+import { app } from '../app.js';
 import dotenv from 'dotenv';
 import { mongoDB_connection } from '../Database/db.js';
 import serverless from 'serverless-http';
@@ -24,13 +24,14 @@ import serverless from 'serverless-http';
 dotenv.config();
 
 let isConnected = false;
+const handler = serverless(app);
 
-export const handler = async (event, context) => {
+const wrappedHandler = async (req, res) => {
   if (!isConnected) {
     await mongoDB_connection();
     isConnected = true;
   }
-
-  const handlerFn = serverless(app);
-  return handlerFn(event, context);
+  return handler(req, res);
 };
+
+export default wrappedHandler;
