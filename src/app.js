@@ -20,7 +20,7 @@ console.log("working correctly")
 })
 
 app.use(cors({
-    origin: "https://crm-backend-rho-weld.vercel.app",
+    origin: "https://crm-frontend-tawny-nine.vercel.app",
     credentials: true
 }))
 
