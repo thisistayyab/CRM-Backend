@@ -53,9 +53,18 @@ const purchaseSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['active', 'canceled', 'returned'],
+        enum: ['active', 'canceled', 'returned', 'complete'],
         default: 'active'
+    },
+    trackingNumber: {
+        type: String,
+        default: ''
+    },
+    courierCompany: {
+        type: String,
+        enum: ['TCS', 'Leopard', 'Custom'],
+        default: 'Custom'
     }
-})
+}, { timestamps: true })
 
 export const Purchase = mongoose.model('Purchase', purchaseSchema)

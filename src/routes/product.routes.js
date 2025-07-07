@@ -8,7 +8,10 @@ import {
   updateOrder,
   deleteOrder,
   cancelOrder,
-  returnOrder
+  returnOrder,
+  getOrderById,
+  getOrderStats,
+  completeOrder
 } from '../controllers/purchase.controller.js';
 
 const router = Router();
@@ -24,9 +27,12 @@ router.route('/:id')
 // Order routes
 router.post('/orders', verifyJWT, createOrder);
 router.get('/orders', verifyJWT, getAllOrders);
+router.get('/orders/stats', verifyJWT, getOrderStats);
+router.get('/orders/:id', verifyJWT, getOrderById);
 router.put('/orders/:id', verifyJWT, updateOrder);
 router.delete('/orders/:id', verifyJWT, deleteOrder);
 router.patch('/orders/:id/cancel', verifyJWT, cancelOrder);
 router.patch('/orders/:id/return', verifyJWT, returnOrder);
+router.patch('/orders/:id/complete', verifyJWT, completeOrder);
 
 export { router }; 

@@ -187,6 +187,10 @@ const updateAccount = asyncHandler(async(req,res)=>{
     return res.status(200).json(new ApiResponse(200, user, "Profile updated successfully"));
 })
 
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find({}, '-password -refreshToken');
+    return res.status(200).json(new ApiResponse(200, users, 'Users fetched successfully'));
+});
 
 export {
     registerUser,
@@ -196,4 +200,5 @@ export {
     changeCurrentPassword,
     getCurrentUser,
     updateAccount,
+    getAllUsers,
 }
