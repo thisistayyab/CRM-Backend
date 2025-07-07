@@ -15,7 +15,7 @@ export const addProduct = asyncHandler(async (req, res) => {
   const { productname, description, category, price, quantity, salePrice } = req.body;
   let imageUrl = '';
   if (req.file) {
-    const uploadResult = await uploadOnCloudinary(req.file.path);
+    const uploadResult = await uploadOnCloudinary(req.file.buffer);
     imageUrl = uploadResult?.secure_url;
   }
   if (!productname || !description || !price || !quantity || !imageUrl) {
