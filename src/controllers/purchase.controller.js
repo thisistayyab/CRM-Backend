@@ -6,13 +6,13 @@ import { Product } from '../models/product.model.js';
 
 // Create a new order
 export const createOrder = asyncHandler(async (req, res) => {
-    const { orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany } = req.body;
+    const { orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses } = req.body;
     if (!orderId || !customerName || !phoneNumber || !customerAddress || !item) {
         throw new ApiError(400, 'All fields are required');
     }
     // item should be array of {product, quantity, price, salePrice}
-    const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, user: req.user._id });
-    return res.status(201).json(new ApiResponse(201, order, 'Order created successfully'));
+    const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
+    return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
 });
 
 // Utility to get order count for a phone number
@@ -39,7 +39,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
     if (!order) {
         throw new ApiError(404, 'Order not found');
     }
-    return res.status(200).json(new ApiResponse(200, order, 'Order updated successfully'));
+    return res.status(200).json(new ApiResponse(200, order.toObject(), 'Order updated successfully'));
 });
 
 // Delete an order
@@ -145,4 +145,22 @@ export const completeOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'Order not found');
     }
     return res.status(200).json(new ApiResponse(200, order, 'Order marked as complete'));
+});
+
+// Add a comment to an order
+export const addOrderComment = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+        throw new ApiError(400, 'Comment text is required');
+    }
+    const order = await Purchase.findByIdAndUpdate(
+        id,
+        { $push: { comments: { text, date: new Date() } } },
+        { new: true }
+    );
+    if (!order) {
+        throw new ApiError(404, 'Order not found');
+    }
+    return res.status(200).json(new ApiResponse(200, order.comments, 'Comment added successfully'));
 }); 

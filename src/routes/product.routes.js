@@ -11,7 +11,8 @@ import {
   returnOrder,
   getOrderById,
   getOrderStats,
-  completeOrder
+  completeOrder,
+  addOrderComment
 } from '../controllers/purchase.controller.js';
 
 const router = Router();
@@ -34,5 +35,6 @@ router.delete('/orders/:id', verifyJWT, deleteOrder);
 router.patch('/orders/:id/cancel', verifyJWT, cancelOrder);
 router.patch('/orders/:id/return', verifyJWT, returnOrder);
 router.patch('/orders/:id/complete', verifyJWT, completeOrder);
+router.post('/orders/:id/comments', verifyJWT, addOrderComment);
 
 export { router }; 
