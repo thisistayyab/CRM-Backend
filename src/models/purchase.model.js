@@ -67,4 +67,6 @@ const purchaseSchema = new mongoose.Schema({
     }
 }, { timestamps: true })
 
+purchaseSchema.index({ user: 1, orderId: 1 }, { unique: true });
+
 export const Purchase = mongoose.model('Purchase', purchaseSchema)
