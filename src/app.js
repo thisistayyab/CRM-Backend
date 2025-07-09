@@ -25,7 +25,7 @@ app.use(cors({
         if (!origin) return callback(null, true);
         
         const allowedOrigins = [
-            "https://crm-frontend-tawny-nine.vercel.app",
+            "https://taylancecrm.vercel.app",
             "http://localhost:5173",
             "http://localhost:3000"
         ];

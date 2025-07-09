@@ -1,13 +1,13 @@
 {
-  "name": "crm",
+  "name": "taylancecrm",
   "version": "1.0.0",
-  "description": "customer relationship management is a software to calculate profit loss",
+  "description": "Taylance CRM is a powerful, user-friendly Customer Relationship Management system built to streamline sales, manage clients, and boost productivity. Created by Taylance Technologies for startups, freelancers, and growing businesses.",
   "keywords": [
     "CRM",
     "MERN"
   ],
   "license": "ISC",
-  "author": "thisistayyab",
+  "author": "Taylance Technologies",
   "type": "module",
   "main": "index.js",
   "scripts": {
