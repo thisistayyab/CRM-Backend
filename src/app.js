@@ -1,10 +1,10 @@
+import dotenv from 'dotenv'
+dotenv.config()
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv'
 import { mongoDB_connection } from './Database/db.js'
 const app = express();
-dotenv.config()
 
 const port = process.env.PORT||3000
 

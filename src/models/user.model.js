@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema({
     },
     refreshToken: {
         type: String
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    verificationCode: {
+        type: String
+    },
+    verificationCodeExpires: {
+        type: Date
     }
 })
 
@@ -88,6 +98,18 @@ userSchema.methods.generateRefreshToken = function (){
         throw error;
     }
 }
+
+userSchema.methods.generateVerificationCode = function () {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.verificationCode = code;
+    this.verificationCodeExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    return code;
+};
+
+userSchema.methods.clearVerificationCode = function () {
+    this.verificationCode = undefined;
+    this.verificationCodeExpires = undefined;
+};
 
 
 export const User = mongoose.model('User', userSchema)
