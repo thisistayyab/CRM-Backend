@@ -2,9 +2,9 @@ import { v2 as cloudinary } from "cloudinary";
 import streamifier from 'streamifier';
 
 cloudinary.config({ 
-    cloud_name: 'dxvs4jtl1', 
-    api_key: '397191661255793', 
-    api_secret: '-cP6pjzS3c2f-2t9n24ULkx3hmI' 
+    cloud_name: process.env.CLOUDINARY_NAME, 
+    api_key: process.env.CLOUDINARY_API, 
+    api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
 const uploadOnCloudinary = async (fileBuffer) => {
