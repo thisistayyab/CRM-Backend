@@ -21,7 +21,6 @@ console.log("working correctly")
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
         const allowedOrigins = [
@@ -42,17 +41,20 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }))
 
-app.use(express.json({limit:"16kb"}))
-app.use(express.urlencoded({extended:true, limit:"16kb"}))
+app.use(express.json({limit:"50mb"}))
+app.use(express.urlencoded({extended:true, limit:"50mb"}))
 app.use(express.static("public"))
 app.use(cookieParser())
 import { router } from './routes/user.routes.js';
 import { router as productRouter } from './routes/product.routes.js';
+import { storeRouter } from './routes/store.routes.js';
+import { analyticsRouter } from './routes/analytics.routes.js';
 
 app.use("/v1/api/user",router)
 app.use("/v1/api/product", productRouter)
+app.use("/v1/api/store", storeRouter)
+app.use("/v1/api/analytics", analyticsRouter);
 
-// Global error handler
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
