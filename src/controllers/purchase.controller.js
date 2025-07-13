@@ -5,14 +5,27 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { Product } from '../models/product.model.js';
 
 // Create a new order
-export const createOrder = asyncHandler(async (req, res) => {
+export const createOrder = asyncHandler(async (req, res, next) => {
     const { orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses } = req.body;
     if (!orderId || !customerName || !phoneNumber || !customerAddress || !item) {
         throw new ApiError(400, 'All fields are required');
     }
-    // item should be array of {product, quantity, price, salePrice}
-    const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
-    return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
+    try {
+        // item should be array of {product, quantity, price, salePrice}
+        const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
+        return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
+    } catch (err) {
+        if (err.code === 11000 && err.keyPattern && err.keyPattern.orderId) {
+            // Duplicate orderId error
+            return res.status(409).json({
+                success: false,
+                message: 'Order ID already exists. Please use a unique Order ID.',
+                errors: [],
+                data: null
+            });
+        }
+        throw err;
+    }
 });
 
 // Utility to get order count for a phone number

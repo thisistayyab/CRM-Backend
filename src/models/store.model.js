@@ -55,14 +55,13 @@ const storeSchema = new mongoose.Schema({
     owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
-        unique: true
+        required: true
     }
 }, {
     timestamps: true
 })
 
 // Index for faster queries
-storeSchema.index({ owner: 1 })
+storeSchema.index({ owner: 1 }, { unique: true })
 
 export const Store = mongoose.model('Store', storeSchema) 
