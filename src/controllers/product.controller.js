@@ -12,7 +12,7 @@ export const getAllProducts = asyncHandler(async (req, res) => {
 
 // Add a product
 export const addProduct = asyncHandler(async (req, res) => {
-  const { productname, description, category, price, quantity, salePrice } = req.body;
+  const { productname, description, category, price, quantity, salePrice, location, minStock } = req.body;
   let imageUrl = '';
   if (req.file) {
     const uploadResult = await uploadOnCloudinary(req.file.buffer);
@@ -31,6 +31,19 @@ export const addProduct = asyncHandler(async (req, res) => {
     image: imageUrl,
     createdBy: req.user._id
   });
+  // Create inventory item for this product
+  try {
+    const { Inventory } = await import('../models/inventory.model.js');
+    await Inventory.create({
+      product: product._id,
+      quantity,
+      location: location || 'Default',
+      minStock: minStock || 1
+    });
+  } catch (err) {
+    // Log error but don't block product creation
+    console.error('Failed to create inventory item for product:', err);
+  }
   return res.status(201).json(new ApiResponse(201, product, 'Product added successfully'));
 });
 
@@ -40,6 +53,13 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findByIdAndDelete(id);
   if (!product) {
     throw new ApiError(404, 'Product not found');
+  }
+  // Also delete the associated inventory item
+  try {
+    const { Inventory } = await import('../models/inventory.model.js');
+    await Inventory.findOneAndDelete({ product: id });
+  } catch (err) {
+    console.error('Failed to delete inventory item for product:', err);
   }
   return res.status(200).json(new ApiResponse(200, product, 'Product deleted successfully'));
 });
@@ -59,5 +79,38 @@ export const updateProduct = asyncHandler(async (req, res) => {
   if (!product) {
     throw new ApiError(404, 'Product not found');
   }
+  // Update inventory quantity if exists
+  if (quantity !== undefined) {
+    try {
+      const { Inventory } = await import('../models/inventory.model.js');
+      await Inventory.findOneAndUpdate(
+        { product: product._id },
+        { quantity },
+        { new: true }
+      );
+    } catch (err) {
+      console.error('Failed to update inventory quantity for product:', err);
+    }
+  }
   return res.status(200).json(new ApiResponse(200, product, 'Product updated successfully'));
+});
+
+// Migration endpoint: create inventory items for all products without one
+export const migrateProductsToInventory = asyncHandler(async (req, res) => {
+  const { Inventory } = await import('../models/inventory.model.js');
+  const products = await Product.find();
+  let created = 0;
+  for (const prod of products) {
+    const exists = await Inventory.findOne({ product: prod._id });
+    if (!exists) {
+      await Inventory.create({
+        product: prod._id,
+        quantity: prod.quantity || 0,
+        location: 'Default',
+        minStock: 1
+      });
+      created++;
+    }
+  }
+  res.json({ message: `Migration complete. Inventory items created: ${created}` });
 }); 

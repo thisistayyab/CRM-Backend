@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllProducts, addProduct, deleteProduct, updateProduct } from '../controllers/product.controller.js';
+import { getAllProducts, addProduct, deleteProduct, updateProduct, migrateProductsToInventory } from '../controllers/product.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { upload } from '../middlewares/multer.middleware.js';
 import {
@@ -36,5 +36,6 @@ router.patch('/orders/:id/cancel', verifyJWT, cancelOrder);
 router.patch('/orders/:id/return', verifyJWT, returnOrder);
 router.patch('/orders/:id/complete', verifyJWT, completeOrder);
 router.post('/orders/:id/comments', verifyJWT, addOrderComment);
+router.post('/migrate-inventory', verifyJWT, migrateProductsToInventory);
 
 export { router }; 

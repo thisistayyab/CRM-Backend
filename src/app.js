@@ -46,11 +46,13 @@ import { router } from './routes/user.routes.js';
 import { router as productRouter } from './routes/product.routes.js';
 import { storeRouter } from './routes/store.routes.js';
 import { analyticsRouter } from './routes/analytics.routes.js';
+import { inventoryRouter } from './routes/inventory.routes.js';
 
 app.use("/v1/api/user",router)
 app.use("/v1/api/product", productRouter)
 app.use("/v1/api/store", storeRouter)
 app.use("/v1/api/analytics", analyticsRouter);
+app.use("/v1/api/inventory", inventoryRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

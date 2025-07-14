@@ -3,6 +3,25 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { Product } from '../models/product.model.js';
+import { Inventory } from '../models/inventory.model.js';
+
+// Helper to update inventory for an order
+async function adjustInventoryForOrder(order, type = 'decrement') {
+  if (!order || !order.item) return;
+  for (const i of order.item) {
+    if (!i.product || !i.quantity) continue;
+    const inv = await Inventory.findOne({ product: i.product });
+    if (inv) {
+      let newQty = inv.quantity;
+      if (type === 'decrement') newQty = Math.max(0, inv.quantity - i.quantity);
+      if (type === 'increment') newQty = inv.quantity + i.quantity;
+      inv.quantity = newQty;
+      await inv.save();
+      // Also update the product's quantity
+      await Product.findByIdAndUpdate(inv.product, { quantity: newQty });
+    }
+  }
+}
 
 // Create a new order
 export const createOrder = asyncHandler(async (req, res, next) => {
@@ -13,6 +32,8 @@ export const createOrder = asyncHandler(async (req, res, next) => {
     try {
         // item should be array of {product, quantity, price, salePrice}
         const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
+        await adjustInventoryForOrder(order, 'decrement');
+        // Do not decrement inventory yet; only on completion
         return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
     } catch (err) {
         if (err.code === 11000 && err.keyPattern && err.keyPattern.orderId) {
@@ -68,20 +89,36 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 // Cancel an order (set status to 'canceled')
 export const cancelOrder = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const order = await Purchase.findByIdAndUpdate(id, { $set: { status: 'canceled' } }, { new: true });
+    const order = await Purchase.findById(id);
     if (!order) {
         throw new ApiError(404, 'Order not found');
     }
+    if (order.status === 'canceled') {
+        return res.status(200).json(new ApiResponse(200, order, 'Order already canceled'));
+    }
+    // If was complete, re-add inventory
+    const wasComplete = order.status === 'complete';
+    order.status = 'canceled';
+    await order.save();
+    if (wasComplete) await adjustInventoryForOrder(order, 'increment');
     return res.status(200).json(new ApiResponse(200, order, 'Order canceled successfully'));
 });
 
 // Return an order (set status to 'returned')
 export const returnOrder = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const order = await Purchase.findByIdAndUpdate(id, { $set: { status: 'returned' } }, { new: true });
+    const order = await Purchase.findById(id);
     if (!order) {
         throw new ApiError(404, 'Order not found');
     }
+    if (order.status === 'returned') {
+        return res.status(200).json(new ApiResponse(200, order, 'Order already returned'));
+    }
+    // If was complete, re-add inventory
+    const wasComplete = order.status === 'complete';
+    order.status = 'returned';
+    await order.save();
+    if (wasComplete) await adjustInventoryForOrder(order, 'increment');
     return res.status(200).json(new ApiResponse(200, order, 'Order returned successfully'));
 });
 
@@ -153,10 +190,17 @@ export const getOrderStats = asyncHandler(async (req, res) => {
 // Add a PATCH endpoint for /orders/:id/complete to set status to 'complete'
 export const completeOrder = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const order = await Purchase.findByIdAndUpdate(id, { $set: { status: 'complete' } }, { new: true });
+    const order = await Purchase.findById(id);
     if (!order) {
         throw new ApiError(404, 'Order not found');
     }
+    if (order.status === 'complete') {
+        return res.status(200).json(new ApiResponse(200, order, 'Order already marked as complete'));
+    }
+    // Mark as complete and decrement inventory
+    order.status = 'complete';
+    await order.save();
+    await adjustInventoryForOrder(order, 'decrement');
     return res.status(200).json(new ApiResponse(200, order, 'Order marked as complete'));
 });
 

@@ -96,9 +96,52 @@ export const getAnalyticsOverview = async (req, res) => {
     // Top 4 products
     const topProducts = topProductsArr.slice(0, 4);
 
-    // Customer Retention & Engagement (mocked for now)
-    const customerRetention = [80, 82, 85, 87, 90, 92, 95];
-    const customerEngagement = [60, 65, 70, 75, 80, 85, 90];
+    // Customer Engagement: unique customers per week for last 7 weeks
+    const engagementWeeks = 7;
+    const engagementNow = new Date();
+    const customerEngagement = [];
+    for (let i = engagementWeeks - 1; i >= 0; i--) {
+      const weekStart = new Date(engagementNow);
+      weekStart.setDate(weekStart.getDate() - i * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const weekOrders = orders.filter(order =>
+        order.createdAt >= weekStart && order.createdAt < weekEnd
+      );
+      const uniqueCustomers = new Set(weekOrders.map(o => o.phoneNumber));
+      customerEngagement.push(uniqueCustomers.size);
+    }
+
+    // Customer Retention: percent of last week's customers who returned this week
+    const customerRetention = [];
+    for (let i = 1; i < customerEngagement.length; i++) {
+      const prevWeekStart = new Date(engagementNow);
+      prevWeekStart.setDate(prevWeekStart.getDate() - (engagementWeeks - i) * 7);
+      prevWeekStart.setHours(0, 0, 0, 0);
+      const prevWeekEnd = new Date(prevWeekStart);
+      prevWeekEnd.setDate(prevWeekEnd.getDate() + 7);
+
+      const currWeekStart = new Date(engagementNow);
+      currWeekStart.setDate(currWeekStart.getDate() - (engagementWeeks - i - 1) * 7);
+      currWeekStart.setHours(0, 0, 0, 0);
+      const currWeekEnd = new Date(currWeekStart);
+      currWeekEnd.setDate(currWeekEnd.getDate() + 7);
+
+      const prevWeekOrders = orders.filter(order =>
+        order.createdAt >= prevWeekStart && order.createdAt < prevWeekEnd
+      );
+      const currWeekOrders = orders.filter(order =>
+        order.createdAt >= currWeekStart && order.createdAt < currWeekEnd
+      );
+      const prevCustomers = new Set(prevWeekOrders.map(o => o.phoneNumber));
+      const currCustomers = new Set(currWeekOrders.map(o => o.phoneNumber));
+      const retained = [...prevCustomers].filter(c => currCustomers.has(c));
+      const retentionRate = prevCustomers.size === 0 ? 0 : Math.round((retained.length / prevCustomers.size) * 100);
+      customerRetention.push(retentionRate);
+    }
+    customerRetention.unshift(0);
 
     res.json({
       revenue,
