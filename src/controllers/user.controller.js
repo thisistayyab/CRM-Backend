@@ -10,7 +10,6 @@ import { redisClient } from '../utils/redisClient.js';
 
 const generateAcessAndRefreshToken = async (userid)=>{
     try {
-        console.log("Starting token generation for user:", userid);
         const user = await User.findById(userid)
         if (!user) {
             throw new ApiError(404, "User not found for token generation");
@@ -19,10 +18,8 @@ const generateAcessAndRefreshToken = async (userid)=>{
         const refreshToken = user.generateRefreshToken()
         user.refreshToken = refreshToken
         await user.save({validateBeforeSave:false})
-        console.log("Tokens generated and saved successfully");
         return {accessToken,refreshToken}
     } catch (error) {
-        console.error("Token generation error:", error);
         throw new ApiError(500, "Something went wrong at the end")
     }
 }
@@ -124,9 +121,7 @@ const loginUser = asyncHandler(async(req,res)=>{
         throw new ApiError(401, "Invalid Credentials")
     }
     
-    console.log("Generating tokens for user:", user._id);
     const {accessToken, refreshToken} = await generateAcessAndRefreshToken(user._id)
-    console.log("Tokens generated successfully");
     
     const logedInUser = await User.findById(user._id).select("-password -refreshToken")
     const options = {

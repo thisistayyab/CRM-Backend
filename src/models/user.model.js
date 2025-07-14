@@ -75,7 +75,6 @@ userSchema.methods.generateAccessToken = function (){
             }
         )
     } catch (error) {
-        console.error("Access token generation error:", error);
         throw error;
     }
 }
@@ -94,7 +93,6 @@ userSchema.methods.generateRefreshToken = function (){
             }
         )
     } catch (error) {
-        console.error("Refresh token generation error:", error);
         throw error;
     }
 }

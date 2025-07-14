@@ -11,12 +11,9 @@ const port = process.env.PORT||3000
 mongoDB_connection()
 .then(()=>{
   app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
   })
-console.log("working correctly")
 })
 .catch((err)=>{
-  console.log(err)
 })
 
 app.use(cors({

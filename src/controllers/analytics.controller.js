@@ -4,10 +4,16 @@ import { Product } from '../models/product.model.js';
 
 export const getAnalyticsOverview = async (req, res) => {
   try {
-    // Fetch all orders
-    const orders = await Purchase.find().populate('item.product');
+    // Filter by logged-in user if present
+    const userId = req.user?._id;
+    const orderQuery = userId ? { user: userId } : {};
+    // Fetch orders for this user (or all if admin/global)
+    const orders = await Purchase.find(orderQuery).populate('item.product');
     // Fetch all users
-    const customers = await User.countDocuments();
+    // For user-specific analytics, count unique customers from orders (by phoneNumber)
+    const customers = userId
+      ? new Set(orders.map(o => o.phoneNumber)).size
+      : await User.countDocuments();
     // Fetch all products
     const products = await Product.find();
 
@@ -36,13 +42,29 @@ export const getAnalyticsOverview = async (req, res) => {
 
     // Sales Trend (monthly revenue for last 12 months)
     const now = new Date();
-    const salesTrend = Array(12).fill(0);
+    // Prepare month labels (Jan, Feb, ...)
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // Get the last 12 months, oldest first, current month last
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
+        label: monthLabels[d.getMonth()]
+      });
+    }
+    // Initialize salesTrend with correct months
+    const salesTrend = months.map(m => ({ month: m.label, sales: 0 }));
     orders.forEach(order => {
       if (order.status === 'complete' && order.createdAt) {
         const d = new Date(order.createdAt);
-        const monthsAgo = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
-        if (monthsAgo >= 0 && monthsAgo < 12) {
-          salesTrend[11 - monthsAgo] += order.totalPrice || 0;
+        // Find the matching month/year slot
+        for (let i = 0; i < months.length; i++) {
+          if (d.getFullYear() === months[i].year && d.getMonth() === months[i].monthIndex) {
+            salesTrend[i].sales += order.totalPrice || 0;
+            break;
+          }
         }
       }
     });
