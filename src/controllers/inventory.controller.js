@@ -5,7 +5,11 @@ import { ApiError } from '../utils/ApiError.js';
 
 // Get all inventory items
 export const getAllInventory = asyncHandler(async (req, res) => {
-  const inventory = await Inventory.find().populate('product');
+  // Find all products created by the current user
+  const userProducts = await Product.find({ createdBy: req.user._id }).select('_id');
+  const productIds = userProducts.map(p => p._id);
+  // Find inventory items for those products
+  const inventory = await Inventory.find({ product: { $in: productIds } }).populate('product');
   res.json({ data: inventory });
 });
 

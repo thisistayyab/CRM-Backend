@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+console.log(process.env.SMTP_PASS)
 
 export const sendMail = async ({ to, subject, html }) => {
   const transporter = nodemailer.createTransport({
@@ -11,10 +12,17 @@ export const sendMail = async ({ to, subject, html }) => {
     },
   });
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to,
-    subject,
-    html,
-  });
+  const fromAddress = `Taylance CRM <${process.env.SMTP_FROM || process.env.SMTP_USER}>`;
+
+  try {
+    await transporter.sendMail({
+      from: fromAddress,
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error('sendMail error:', err);
+    throw err;
+  }
 }; 
