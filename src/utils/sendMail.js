@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-console.log(process.env.SMTP_PASS)
 
 export const sendMail = async ({ to, subject, html }) => {
   const transporter = nodemailer.createTransport({
