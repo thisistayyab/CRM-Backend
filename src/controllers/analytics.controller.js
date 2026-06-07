@@ -1,6 +1,8 @@
 import { Purchase } from '../models/purchase.model.js';
-import { User } from '../models/user.model.js';
 import { Product } from '../models/product.model.js';
+import { Inventory } from '../models/inventory.model.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 export const getAnalyticsOverview = async (req, res) => {
   try {
@@ -158,4 +160,143 @@ export const getAnalyticsOverview = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Error fetching analytics', error: err.message });
   }
-}; 
+};
+
+const getMonthRange = (offset = 0) => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() + offset, 1, 0, 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0, 23, 59, 59, 999);
+  return [start, end];
+};
+
+const calcOrderProfit = (order) => {
+  if (!order.item?.length) return 0;
+  const revenue = order.item.reduce((sum, i) => sum + ((i.salePrice || i.price) * i.quantity), 0);
+  const cost = order.item.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const expenses = (order.shippingCharges || 0) + (order.otherExpenses || 0);
+  return revenue - cost - expenses;
+};
+
+export const getDashboardInsights = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const orders = await Purchase.find({ user: userId }).populate('item.product');
+
+  const [thisStart, thisEnd] = getMonthRange(0);
+  const [lastStart, lastEnd] = getMonthRange(-1);
+
+  const thisMonthOrders = orders.filter(o => o.createdAt >= thisStart && o.createdAt <= thisEnd);
+  const lastMonthOrders = orders.filter(o => o.createdAt >= lastStart && o.createdAt <= lastEnd);
+
+  const thisMonthComplete = thisMonthOrders.filter(o => o.status === 'complete');
+  const lastMonthComplete = lastMonthOrders.filter(o => o.status === 'complete');
+
+  const thisProfit = thisMonthComplete.reduce((sum, o) => sum + calcOrderProfit(o), 0);
+  const lastProfit = lastMonthComplete.reduce((sum, o) => sum + calcOrderProfit(o), 0);
+
+  const profitGrowth = lastProfit === 0
+    ? (thisProfit > 0 ? 100 : 0)
+    : ((thisProfit - lastProfit) / Math.abs(lastProfit)) * 100;
+
+  const thisRevenue = thisMonthComplete.reduce((sum, o) => sum + (o.totalPrice || 0), 0);
+  const thisExpenses = thisMonthComplete.reduce(
+    (sum, o) => sum + (o.shippingCharges || 0) + (o.otherExpenses || 0), 0
+  );
+  const expenseRatio = thisRevenue > 0 ? (thisExpenses / thisRevenue) * 100 : 0;
+
+  const totalOrders = orders.length;
+  const problemOrders = orders.filter(o => o.status === 'canceled' || o.status === 'returned').length;
+  const cancelRate = totalOrders > 0 ? (problemOrders / totalOrders) * 100 : 0;
+
+  const userProducts = await Product.find({ createdBy: userId }).select('_id');
+  const productIds = userProducts.map(p => p._id);
+  const inventory = await Inventory.find({ product: { $in: productIds } }).populate('product');
+  const lowStockItems = inventory.filter(i => i.quantity <= (i.minStock || 5));
+
+  let riskLevel = 'Low';
+  if (cancelRate > 15 || lowStockItems.length > 5) riskLevel = 'High';
+  else if (cancelRate > 8 || lowStockItems.length > 2) riskLevel = 'Medium';
+
+  const now = new Date();
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const profitTrend = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthOrders = orders.filter(o =>
+      o.status === 'complete' && o.createdAt >= start && o.createdAt <= end
+    );
+    profitTrend.push({
+      label: monthLabels[d.getMonth()],
+      value: monthOrders.reduce((sum, o) => sum + calcOrderProfit(o), 0)
+    });
+  }
+
+  return res.status(200).json(new ApiResponse(200, {
+    profitGrowth: Math.round(profitGrowth * 100) / 100,
+    expenseRatio: Math.round(expenseRatio * 100) / 100,
+    riskLevel,
+    cancelRate: Math.round(cancelRate * 100) / 100,
+    lowStockCount: lowStockItems.length,
+    lowStockItems: lowStockItems.slice(0, 5).map(i => ({
+      productName: i.product?.productname || 'Unknown',
+      quantity: i.quantity,
+      minStock: i.minStock || 5
+    })),
+    profitTrend
+  }, 'Dashboard insights fetched'));
+});
+
+export const getCustomers = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const orders = await Purchase.find({ user: userId }).sort({ createdAt: -1 });
+
+  const customerMap = {};
+  orders.forEach(order => {
+    const key = order.phoneNumber;
+    if (!key) return;
+    if (!customerMap[key]) {
+      customerMap[key] = {
+        phoneNumber: key,
+        customerName: order.customerName,
+        customerAddress: order.customerAddress,
+        totalOrders: 0,
+        completedOrders: 0,
+        totalSpent: 0,
+        lastOrderDate: order.createdAt,
+        firstOrderDate: order.createdAt,
+        statuses: { active: 0, complete: 0, canceled: 0, returned: 0 }
+      };
+    }
+    const c = customerMap[key];
+    c.totalOrders += 1;
+    c.statuses[order.status] = (c.statuses[order.status] || 0) + 1;
+    if (order.status === 'complete') {
+      c.completedOrders += 1;
+      c.totalSpent += order.totalPrice || 0;
+    }
+    if (order.createdAt > c.lastOrderDate) {
+      c.lastOrderDate = order.createdAt;
+      c.customerName = order.customerName;
+      c.customerAddress = order.customerAddress;
+    }
+    if (order.createdAt < c.firstOrderDate) c.firstOrderDate = order.createdAt;
+  });
+
+  const customers = Object.values(customerMap).map(c => {
+    let segment = 'New';
+    if (c.completedOrders >= 5 || c.totalSpent >= 50000) segment = 'VIP';
+    else if (c.completedOrders >= 2) segment = 'Repeat';
+    return { ...c, segment };
+  }).sort((a, b) => b.totalSpent - a.totalSpent);
+
+  const summary = {
+    totalCustomers: customers.length,
+    vipCustomers: customers.filter(c => c.segment === 'VIP').length,
+    repeatCustomers: customers.filter(c => c.segment === 'Repeat').length,
+    newCustomers: customers.filter(c => c.segment === 'New').length,
+    totalRevenue: customers.reduce((sum, c) => sum + c.totalSpent, 0)
+  };
+
+  return res.status(200).json(new ApiResponse(200, { customers, summary }, 'Customers fetched'));
+}); 

@@ -32,8 +32,6 @@ export const createOrder = asyncHandler(async (req, res, next) => {
     try {
         // item should be array of {product, quantity, price, salePrice}
         const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
-        await adjustInventoryForOrder(order, 'decrement');
-        // Do not decrement inventory yet; only on completion
         return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
     } catch (err) {
         if (err.code === 11000 && err.keyPattern && err.keyPattern.orderId) {
@@ -79,10 +77,14 @@ export const updateOrder = asyncHandler(async (req, res) => {
 // Delete an order
 export const deleteOrder = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const order = await Purchase.findByIdAndDelete(id);
+    const order = await Purchase.findById(id);
     if (!order) {
         throw new ApiError(404, 'Order not found');
     }
+    if (order.status === 'complete') {
+        await adjustInventoryForOrder(order, 'increment');
+    }
+    await Purchase.findByIdAndDelete(id);
     return res.status(200).json(new ApiResponse(200, order, 'Order deleted successfully'));
 });
 
