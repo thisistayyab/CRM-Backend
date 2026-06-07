@@ -11,13 +11,7 @@ export const getAnalyticsOverview = async (req, res) => {
     const orderQuery = userId ? { user: userId } : {};
     // Fetch orders for this user (or all if admin/global)
     const orders = await Purchase.find(orderQuery).populate('item.product');
-    // Fetch all users
-    // For user-specific analytics, count unique customers from orders (by phoneNumber)
-    const customers = userId
-      ? new Set(orders.map(o => o.phoneNumber)).size
-      : await User.countDocuments();
-    // Fetch all products
-    const products = await Product.find();
+    const customers = new Set(orders.map(o => o.phoneNumber)).size;
 
     // Revenue: sum of totalPrice for completed orders
     const revenue = orders.filter(o => o.status === 'complete').reduce((sum, o) => sum + (o.totalPrice || 0), 0);
@@ -232,6 +226,52 @@ export const getDashboardInsights = asyncHandler(async (req, res) => {
     });
   }
 
+  const activeOrders = orders.filter(o => o.status === 'active').length;
+  const facebookOrders = orders.filter(o => o.orderSource === 'facebook');
+  const pendingFacebookOrders = facebookOrders.filter(o => o.status === 'active').length;
+  const repeatPhones = new Set();
+  const phoneCounts = {};
+  orders.forEach(o => {
+    phoneCounts[o.phoneNumber] = (phoneCounts[o.phoneNumber] || 0) + 1;
+    if (phoneCounts[o.phoneNumber] >= 2) repeatPhones.add(o.phoneNumber);
+  });
+  const vipPhones = new Set();
+  orders.filter(o => o.status === 'complete').forEach(o => {
+    const spent = orders.filter(x => x.phoneNumber === o.phoneNumber && x.status === 'complete')
+      .reduce((s, x) => s + (x.totalPrice || 0), 0);
+    const count = orders.filter(x => x.phoneNumber === o.phoneNumber && x.status === 'complete').length;
+    if (count >= 5 || spent >= 50000) vipPhones.add(o.phoneNumber);
+  });
+
+  const growthSignals = [
+    {
+      title: 'Facebook Inbox Orders',
+      description: `${pendingFacebookOrders} active Facebook orders waiting to be fulfilled.`,
+      metric: `${facebookOrders.length} total FB orders`,
+      color: 'primary'
+    },
+    {
+      title: 'Pending Fulfillment',
+      description: `${activeOrders} orders still need tracking, courier, or completion.`,
+      metric: `${activeOrders} active`,
+      color: 'warning'
+    },
+    {
+      title: 'Repeat Customers',
+      description: `${repeatPhones.size} buyers came back for another order — your retention engine.`,
+      metric: `${repeatPhones.size} repeat`,
+      color: 'success'
+    },
+    {
+      title: 'Inventory Pressure',
+      description: lowStockItems.length
+        ? `${lowStockItems.length} products are at or below minimum stock.`
+        : 'Stock levels are healthy across your catalog.',
+      metric: lowStockItems.length ? `${lowStockItems.length} low stock` : 'All healthy',
+      color: 'info'
+    }
+  ];
+
   return res.status(200).json(new ApiResponse(200, {
     profitGrowth: Math.round(profitGrowth * 100) / 100,
     expenseRatio: Math.round(expenseRatio * 100) / 100,
@@ -243,7 +283,13 @@ export const getDashboardInsights = asyncHandler(async (req, res) => {
       quantity: i.quantity,
       minStock: i.minStock || 5
     })),
-    profitTrend
+    profitTrend,
+    activeOrders,
+    pendingFacebookOrders,
+    facebookOrdersTotal: facebookOrders.length,
+    repeatCustomers: repeatPhones.size,
+    vipCustomers: vipPhones.size,
+    growthSignals
   }, 'Dashboard insights fetched'));
 });
 

@@ -40,9 +40,8 @@ export const addProduct = asyncHandler(async (req, res) => {
       location: location || 'Default',
       minStock: minStock || 1
     });
-  } catch (err) {
-    // Log error but don't block product creation
-    console.error('Failed to create inventory item for product:', err);
+  } catch {
+    // Non-blocking: product created even if inventory sync fails
   }
   return res.status(201).json(new ApiResponse(201, product, 'Product added successfully'));
 });
@@ -58,8 +57,8 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   try {
     const { Inventory } = await import('../models/inventory.model.js');
     await Inventory.findOneAndDelete({ product: id });
-  } catch (err) {
-    console.error('Failed to delete inventory item for product:', err);
+  } catch {
+    // Non-blocking
   }
   return res.status(200).json(new ApiResponse(200, product, 'Product deleted successfully'));
 });
@@ -88,8 +87,8 @@ export const updateProduct = asyncHandler(async (req, res) => {
         { quantity },
         { new: true }
       );
-    } catch (err) {
-      console.error('Failed to update inventory quantity for product:', err);
+    } catch {
+      // Non-blocking
     }
   }
   return res.status(200).json(new ApiResponse(200, product, 'Product updated successfully'));

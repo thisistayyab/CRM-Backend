@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { Product } from '../models/product.model.js';
 import { Inventory } from '../models/inventory.model.js';
+import { parseFacebookOrderMessage } from '../utils/parseFacebookOrder.js';
 
 // Helper to update inventory for an order
 async function adjustInventoryForOrder(order, type = 'decrement') {
@@ -25,13 +26,13 @@ async function adjustInventoryForOrder(order, type = 'decrement') {
 
 // Create a new order
 export const createOrder = asyncHandler(async (req, res, next) => {
-    const { orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses } = req.body;
+    const { orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, orderSource, rawMessage } = req.body;
     if (!orderId || !customerName || !phoneNumber || !customerAddress || !item) {
         throw new ApiError(400, 'All fields are required');
     }
     try {
         // item should be array of {product, quantity, price, salePrice}
-        const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, user: req.user._id });
+        const order = await Purchase.create({ orderId, customerName, phoneNumber, customerAddress, item, totalPrice, shippingCharges, trackingNumber, courierCompany, otherExpenses, orderSource: orderSource || 'other', rawMessage: rawMessage || '', user: req.user._id });
         return res.status(201).json(new ApiResponse(201, order.toObject(), 'Order created successfully'));
     } catch (err) {
         if (err.code === 11000 && err.keyPattern && err.keyPattern.orderId) {
@@ -48,16 +49,30 @@ export const createOrder = asyncHandler(async (req, res, next) => {
 });
 
 // Utility to get order count for a phone number
-async function getOrderCountByPhone(phoneNumber) {
-    return await Purchase.countDocuments({ phoneNumber });
+async function getOrderCountByPhone(phoneNumber, userId) {
+    return await Purchase.countDocuments({ phoneNumber, user: userId });
 }
+
+export const parseFacebookMessage = asyncHandler(async (req, res) => {
+    const { message } = req.body;
+    if (!message?.trim()) throw new ApiError(400, 'Message text is required');
+    const products = await Product.find({ createdBy: req.user._id }).select('productname price salePrice');
+    const parsed = parseFacebookOrderMessage(message, products);
+    return res.status(200).json(new ApiResponse(200, parsed, 'Message parsed successfully'));
+});
+
+export const getOrdersByPhone = asyncHandler(async (req, res) => {
+    const { phoneNumber } = req.params;
+    const orders = await Purchase.find({ user: req.user._id, phoneNumber }).populate('item.product').sort({ createdAt: -1 });
+    return res.status(200).json(new ApiResponse(200, orders, 'Orders fetched successfully'));
+});
 
 // Get all orders
 export const getAllOrders = asyncHandler(async (req, res) => {
     let orders = await Purchase.find({ user: req.user._id }).populate('item.product');
     // Add orderCountForCustomer to each order
     orders = await Promise.all(orders.map(async (order) => {
-        const orderCountForCustomer = await getOrderCountByPhone(order.phoneNumber);
+        const orderCountForCustomer = await getOrderCountByPhone(order.phoneNumber, req.user._id);
         return { ...order.toObject(), orderCountForCustomer };
     }));
     return res.status(200).json(new ApiResponse(200, orders, 'Orders fetched successfully'));
@@ -135,7 +150,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
     if (order.user.toString() !== req.user._id.toString()) {
         throw new ApiError(403, 'Not authorized to view this order');
     }
-    const orderCountForCustomer = await getOrderCountByPhone(order.phoneNumber);
+    const orderCountForCustomer = await getOrderCountByPhone(order.phoneNumber, req.user._id);
     return res.status(200).json(new ApiResponse(200, { ...order.toObject(), orderCountForCustomer }, 'Order fetched successfully'));
 });
 

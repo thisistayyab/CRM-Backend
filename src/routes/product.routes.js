@@ -12,7 +12,9 @@ import {
   getOrderById,
   getOrderStats,
   completeOrder,
-  addOrderComment
+  addOrderComment,
+  parseFacebookMessage,
+  getOrdersByPhone
 } from '../controllers/purchase.controller.js';
 
 const router = Router();
@@ -27,7 +29,9 @@ router.route('/:id')
 
 // Order routes
 router.post('/orders', verifyJWT, createOrder);
+router.post('/orders/parse-facebook', verifyJWT, parseFacebookMessage);
 router.get('/orders', verifyJWT, getAllOrders);
+router.get('/orders/by-phone/:phoneNumber', verifyJWT, getOrdersByPhone);
 router.get('/orders/stats', verifyJWT, getOrderStats);
 router.get('/orders/:id', verifyJWT, getOrderById);
 router.put('/orders/:id', verifyJWT, updateOrder);

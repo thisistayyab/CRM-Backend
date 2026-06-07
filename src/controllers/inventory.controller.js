@@ -49,9 +49,8 @@ export const updateInventory = asyncHandler(async (req, res) => {
   if (quantity !== undefined && item.product) {
     try {
       await Product.findByIdAndUpdate(item.product, { quantity });
-    } catch (err) {
+    } catch {
       productUpdateSuccess = false;
-      console.error('Failed to update product quantity from inventory:', err);
     }
   }
 

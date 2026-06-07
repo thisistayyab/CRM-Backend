@@ -73,7 +73,16 @@ const purchaseSchema = new mongoose.Schema({
         text: { type: String, required: true },
         date: { type: Date, default: Date.now }
       }
-    ]
+    ],
+    orderSource: {
+        type: String,
+        enum: ['facebook', 'instagram', 'whatsapp', 'phone', 'walk-in', 'other'],
+        default: 'other'
+    },
+    rawMessage: {
+        type: String,
+        default: ''
+    }
 }, { timestamps: true })
 
 // Virtual for net profit

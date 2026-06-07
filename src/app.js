@@ -1,59 +1,52 @@
-import dotenv from 'dotenv'
-dotenv.config()
-import express from 'express'
-import cors from 'cors'
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { mongoDB_connection } from './Database/db.js'
-const app = express();
-
-const port = process.env.PORT||3000
-
-mongoDB_connection()
-.then(()=>{
-  app.listen(port, () => {
-  })
-})
-.catch((err)=>{
-})
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        
-        const allowedOrigins = [
-            "https://taylancecrm.vercel.app",
-            "http://localhost:5173",
-            "http://localhost:3000",
-            ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [])
-        ];
-        
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.log("CORS blocked origin:", origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}))
-
-app.use(express.json({limit:"50mb"}))
-app.use(express.urlencoded({extended:true, limit:"50mb"}))
-app.use(express.static("public"))
-app.use(cookieParser())
+import { mongoDB_connection } from './Database/db.js';
 import { router } from './routes/user.routes.js';
 import { router as productRouter } from './routes/product.routes.js';
 import { storeRouter } from './routes/store.routes.js';
 import { analyticsRouter } from './routes/analytics.routes.js';
 import { inventoryRouter } from './routes/inventory.routes.js';
+import { generalLimiter } from './middlewares/rateLimiter.js';
 
-app.use("/v1/api/user",router)
-app.use("/v1/api/product", productRouter)
-app.use("/v1/api/store", storeRouter)
-app.use("/v1/api/analytics", analyticsRouter);
-app.use("/v1/api/inventory", inventoryRouter);
+const app = express();
+const port = process.env.PORT || 8000;
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:4173',
+      'http://localhost:3000',
+      ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [])
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.static('public'));
+app.use(cookieParser());
+app.use(generalLimiter);
+
+app.use('/v1/api/user', router);
+app.use('/v1/api/product', productRouter);
+app.use('/v1/api/store', storeRouter);
+app.use('/v1/api/analytics', analyticsRouter);
+app.use('/v1/api/inventory', inventoryRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
@@ -65,4 +58,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-export default app
+const startServer = async () => {
+  try {
+    await mongoDB_connection();
+    if (!process.env.VERCEL) {
+      app.listen(port);
+    }
+  } catch (err) {
+    process.exit(1);
+  }
+};
+
+startServer();
+
+export default app;

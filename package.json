@@ -1,43 +1,42 @@
 {
-  "name": "taylancecrm",
+  "name": "taylancecrm-api",
   "version": "1.0.0",
-  "description": "Taylance CRM is a powerful, user-friendly Customer Relationship Management system built to streamline sales, manage clients, and boost productivity. Created by Taylance Technologies for startups, freelancers, and growing businesses.",
+  "description": "Taylance CRM API — order and client management backend. A product by Taylance Tech (https://taylancetech.com).",
   "keywords": [
     "CRM",
-    "MERN"
+    "API",
+    "Express",
+    "Taylance CRM",
+    "Taylance Tech"
   ],
-  "license": "ISC",
-  "author": "Taylance Technologies",
+  "license": "UNLICENSED",
+  "author": "Taylance Tech <https://taylancetech.com>",
   "type": "module",
-  "main": "index.js",
+  "main": "src/app.js",
   "scripts": {
-    "start": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "argon2": "^0.43.0",
     "cloudinary": "^2.6.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.1",
     "multer": "^1.4.5-lts.2",
     "nodemailer": "^6.9.8",
-    "nodemon": "^3.1.10",
     "redis": "^5.6.0",
     "serverless-http": "^3.2.0",
     "streamifier": "^0.1.1"
   },
-  "requiredEnvVariables": {
-    "nodemailer": {
-      "SMTP_HOST": "Required for sending emails",
-      "SMTP_PORT": "Required for sending emails",
-      "SMTP_USER": "Required for sending emails",
-      "SMTP_PASS": "Required for sending emails",
-      "SMTP_FROM": "Optional, defaults to no-reply@example.com",
-      "EMAIL_VERIFICATION_SECRET": "Required for email verification",
-      "FRONTEND_URL": "Required for email verification links"
-    }
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
