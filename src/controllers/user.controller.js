@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken'
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { sendMail } from "../utils/sendMail.js";
 import crypto from 'crypto';
-import { redisClient } from '../utils/redisClient.js';
+import { getRedisClient } from '../utils/redisClient.js';
 import { PRODUCT_NAME } from '../constants/brand.js';
 import { verificationEmail, resendVerificationEmail, passwordResetEmail } from '../utils/emailTemplates.js';
 import { ensureUniqueUsername } from '../utils/username.js';
@@ -31,6 +31,7 @@ const generateAcessAndRefreshToken = async (userid)=>{
 }
 
 const registerUser = asyncHandler(async(req,res)=>{
+    const redis = await getRedisClient();
     const { password, email, fullname, phone, storeName } = req.body;
     const normalizedEmail = email?.trim().toLowerCase();
     const normalizedPhone = normalizePhone(phone);
@@ -51,7 +52,7 @@ const registerUser = asyncHandler(async(req,res)=>{
     }
     // Check if a pending signup exists in Redis
     const redisKey = `signup:${normalizedEmail}`;
-    const pending = await redisClient.get(redisKey);
+    const pending = await redis.get(redisKey);
     if (pending) {
         throw new ApiError(429, 'A verification code was already sent. Please check your email or wait before retrying.');
     }
@@ -65,7 +66,7 @@ const registerUser = asyncHandler(async(req,res)=>{
         storeName: storeName.trim(),
         code,
     };
-    await redisClient.set(redisKey, JSON.stringify(signupData), { EX: 15 * 60 }); // 15 min expiry
+    await redis.set(redisKey, JSON.stringify(signupData), { EX: 15 * 60 }); // 15 min expiry
     // Send code by email
     try {
         const { html, text } = verificationEmail(code);
@@ -76,7 +77,7 @@ const registerUser = asyncHandler(async(req,res)=>{
             text,
         });
     } catch (err) {
-        await redisClient.del(redisKey);
+        await redis.del(redisKey);
         throw new ApiError(500, 'Failed to send verification email. Please try again.');
     }
     return res.status(201).json(
@@ -85,10 +86,11 @@ const registerUser = asyncHandler(async(req,res)=>{
 })
 
 const verifyCode = asyncHandler(async (req, res) => {
+    const redis = await getRedisClient();
     const { email, code } = req.body;
     if (!email || !code) throw new ApiError(400, 'Email and code are required');
     const redisKey = `signup:${email}`;
-    const pending = await redisClient.get(redisKey);
+    const pending = await redis.get(redisKey);
     if (!pending) throw new ApiError(400, 'No pending verification found. Please sign up again.');
     const signupData = JSON.parse(pending);
     if (signupData.code !== code) {
@@ -96,7 +98,7 @@ const verifyCode = asyncHandler(async (req, res) => {
     }
     const existedUser = await User.findOne({ email: signupData.email });
     if (existedUser) {
-        await redisClient.del(redisKey);
+        await redis.del(redisKey);
         throw new ApiError(409, 'An account with this email already exists');
     }
 
@@ -121,7 +123,7 @@ const verifyCode = asyncHandler(async (req, res) => {
         });
     }
 
-    await redisClient.del(redisKey);
+    await redis.del(redisKey);
     return res.status(200).json(new ApiResponse(200, {}, 'Email verified successfully. You can now log in.'));
 });
 
@@ -266,16 +268,17 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 const resendCode = asyncHandler(async (req, res) => {
+    const redis = await getRedisClient();
     const { email } = req.body;
     if (!email) throw new ApiError(400, 'Email is required');
     const redisKey = `signup:${email}`;
-    const pending = await redisClient.get(redisKey);
+    const pending = await redis.get(redisKey);
     if (!pending) throw new ApiError(400, 'No pending verification found. Please sign up again.');
     const signupData = JSON.parse(pending);
     // Generate new code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     signupData.code = code;
-    await redisClient.set(redisKey, JSON.stringify(signupData), { EX: 15 * 60 }); // reset expiry
+    await redis.set(redisKey, JSON.stringify(signupData), { EX: 15 * 60 }); // reset expiry
     try {
         const { html, text } = resendVerificationEmail(code);
         await sendMail({
@@ -291,6 +294,7 @@ const resendCode = asyncHandler(async (req, res) => {
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
+    const redis = await getRedisClient();
     const { email } = req.body;
     if (!email) throw new ApiError(400, 'Email is required');
     const user = await User.findOne({ email });
@@ -299,7 +303,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     }
     const redisKey = `reset:${email}`;
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await redisClient.set(redisKey, code, { EX: 10 * 60 }); // 10 min expiry
+    await redis.set(redisKey, code, { EX: 10 * 60 }); // 10 min expiry
     try {
         const { html, text } = passwordResetEmail(code);
         await sendMail({
@@ -315,10 +319,11 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
+    const redis = await getRedisClient();
     const { email, code, newPassword } = req.body;
     if (!email || !code || !newPassword) throw new ApiError(400, 'Email, code, and new password are required');
     const redisKey = `reset:${email}`;
-    const storedCode = await redisClient.get(redisKey);
+    const storedCode = await redis.get(redisKey);
     if (!storedCode || storedCode !== code) {
         throw new ApiError(400, 'Invalid or expired reset code');
     }
@@ -326,7 +331,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(400, 'User not found');
     user.password = newPassword;
     await user.save({ validateBeforeSave: false });
-    await redisClient.del(redisKey);
+    await redis.del(redisKey);
     return res.status(200).json(new ApiResponse(200, {}, 'Password has been reset. You can now log in.'));
 });
 

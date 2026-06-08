@@ -1,10 +1,24 @@
-import 'dotenv/config';
-import {createClient} from 'redis';
+import { createClient } from 'redis';
 
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+let client;
+let connectPromise;
 
-await redisClient.connect();
+/** Lazy Redis — avoids blocking Vercel cold starts on top-level connect(). */
+export async function getRedisClient() {
+  if (!client) {
+    client = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    client.on('error', () => {});
+  }
 
-export {redisClient}
+  if (!connectPromise) {
+    connectPromise = client.connect().catch((err) => {
+      connectPromise = null;
+      throw err;
+    });
+  }
+
+  await connectPromise;
+  return client;
+}
